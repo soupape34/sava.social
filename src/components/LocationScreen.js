@@ -9,6 +9,7 @@ import { getMoodEmoji } from "../utils/moodEmojis";
 import mapStyle from "../utils/mapStyle";
 
 const LocationScreen = ({
+  screenHeight,
   moodValue,
   selectedLocation,
   setSelectedLocation,
@@ -81,7 +82,10 @@ const LocationScreen = ({
   };
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
+    <div
+      style={{ minHeight: `${screenHeight}px` }}
+      className="flex flex-col items-center justify-center "
+    >
       {/* Title */}
       <h2 className="mb-4 text-3xl font-semibold">Pick your location</h2>
 

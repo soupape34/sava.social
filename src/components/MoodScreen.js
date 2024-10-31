@@ -1,8 +1,7 @@
-// src/components/MoodScreen.js
 import React, { useEffect, useState, useRef } from "react";
 import { getMoodEmoji } from "../utils/moodEmojis";
 
-const MoodScreen = ({ moodValue, setMoodValue, onNext }) => {
+const MoodScreen = ({ screenHeight, moodValue, setMoodValue, onNext }) => {
   const [isPressed, setIsPressed] = useState(false);
   const moodIntervalRef = useRef(null);
 
@@ -39,7 +38,10 @@ const MoodScreen = ({ moodValue, setMoodValue, onNext }) => {
   }, []);
 
   return (
-    <div className="flex flex-col items-center justify-center h-screen">
+    <div
+      style={{ minHeight: `${screenHeight}px` }}
+      className="flex flex-col items-center justify-center"
+    >
       {/* App Name */}
       <h1 className="mb-8 text-5xl font-semibold">SAVA?</h1>
 

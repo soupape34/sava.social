@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import MoodScreen from "./components/MoodScreen";
 import LocationScreen from "./components/LocationScreen";
 import MapScreen from "./components/MapScreen";
@@ -14,6 +14,20 @@ function App() {
   const [selectedLocation, setSelectedLocation] = useState(null); // { lat, lng }
   const [showAbout, setShowAbout] = useState(false);
 
+  const [screenHeight, setScreenHeight] = useState(window.innerHeight);
+
+  // Function to update screen height
+  const updateScreenHeight = () => {
+    setScreenHeight(window.innerHeight);
+  };
+
+  useEffect(() => {
+    window.addEventListener("resize", updateScreenHeight);
+    return () => {
+      window.removeEventListener("resize", updateScreenHeight);
+    };
+  }, []);
+
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: process.env.REACT_APP_GOOGLE_MAPS_API_KEY, // Ensure this is set in .env
     libraries: ["places"],
@@ -26,6 +40,7 @@ function App() {
     <div className="relative overflow-hidden">
       {currentScreen === "mood" && (
         <MoodScreen
+          screenHeight={screenHeight}
           moodValue={moodValue}
           setMoodValue={setMoodValue}
           onNext={() => setCurrentScreen("location")}
@@ -34,6 +49,7 @@ function App() {
 
       {currentScreen === "location" && (
         <LocationScreen
+          screenHeight={screenHeight}
           moodValue={moodValue}
           selectedLocation={selectedLocation}
           setSelectedLocation={setSelectedLocation}
@@ -44,6 +60,7 @@ function App() {
 
       {currentScreen === "map" && (
         <MapScreen
+          screenHeight={screenHeight}
           moodValue={moodValue}
           selectedLocation={selectedLocation}
           setSelectedLocation={setSelectedLocation}

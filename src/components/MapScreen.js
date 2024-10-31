@@ -97,7 +97,7 @@ const getSizeByCount = (count) => {
   return size;
 };
 
-const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
+const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
   const mapRef = useRef(null);
   const networkRef = useRef(null); // Ref to store Network instance
   const collectionRef = useRef(null); // Ref to store Collection instance
@@ -503,7 +503,10 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
   );
 
   return (
-    <div className="relative w-screen h-screen pb-20">
+    <div
+      style={{ minHeight: `${screenHeight}px` }}
+      className="relative w-screen pb-20"
+    >
       {/* Full Screen Map */}
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
