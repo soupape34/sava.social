@@ -159,14 +159,11 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
   // Define the refresh function
   const refresh = useCallback(() => {
     const fetchSets = async () => {
-      console.log("Zoom stabilized. Refreshing data...");
-
       const collection = collectionRef.current;
       const network = networkRef.current;
       // Removed loadedHashes since caching is disabled
 
       if (!collection || !network) {
-        console.warn("Indexus is not initialized.");
         return;
       }
 
@@ -228,8 +225,6 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
             selected = { ...m };
           }
 
-          console.log("Selected hashes:", selected);
-
           try {
             const result = [];
 
@@ -253,8 +248,6 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
                 }
               }
             }
-
-            console.log("Fetched Sets and Items:", result);
 
             // Separate Items and Sets
             const fetchedItems = result.filter(
@@ -287,8 +280,6 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
                 };
               })
               .filter((marker) => marker !== null); // Remove any null markers
-
-            console.log("New Markers:", newMarkers);
 
             // Process Sets to create areas
             const newAreas = fetchedSets
@@ -368,7 +359,7 @@ const MapScreen = ({ moodValue, selectedLocation, onBack }) => {
 
       try {
         // Initialize Indexus
-        const bootstraps = ["127.0.0.1|21001"];
+        const bootstraps = ["bootstrap.indexus.io|21000"];
         const dimensions = [{ type: "spherical", args: [-90, -180, 90, 180] }];
 
         // Get the selected collection
