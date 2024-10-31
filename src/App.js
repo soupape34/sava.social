@@ -8,6 +8,8 @@ import About from "./components/About";
 import { useLoadScript } from "@react-google-maps/api";
 import "./App.css";
 
+const GOOGLE_MAPS_LIBRARIES = ["places"];
+
 function App() {
   const [currentScreen, setCurrentScreen] = useState("mood"); // 'mood', 'location', 'map'
   const [moodValue, setMoodValue] = useState(null); // Initialize as null for validation
@@ -30,7 +32,7 @@ function App() {
 
   const { isLoaded, loadError } = useLoadScript({
     googleMapsApiKey: "AIzaSyCGwxvUpG1wG__9jOTFPYFoI6eB1xBNTrQ",
-    libraries: ["places"],
+    libraries: GOOGLE_MAPS_LIBRARIES,
   });
 
   if (loadError) return <div>Error loading maps</div>;
