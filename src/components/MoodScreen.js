@@ -59,8 +59,6 @@ const MoodScreen = ({ screenHeight, moodValue, setMoodValue, onNext }) => {
           }`}
           onMouseDown={startIncrementing}
           onMouseUp={stopIncrementing}
-          onTouchStart={startIncrementing}
-          onTouchEnd={stopIncrementing}
         >
           Push
         </button>
