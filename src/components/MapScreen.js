@@ -398,10 +398,10 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
         const step = 10; // Number of items to return per output step
 
         const output = {
-          send: (result) => console.log("Output:", result),
+          send: (result) => {}, // console.log("Output:", result),
         };
         const monitoring = {
-          send: (message) => console.log("Monitoring:", message),
+          send: (message) => {}, // console.log("Monitoring:", message),
         };
 
         // Create a new Network instance and store in ref
@@ -503,10 +503,7 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
   );
 
   return (
-    <div
-      style={{ minHeight: `${screenHeight}px` }}
-      className="relative w-screen pb-20"
-    >
+    <div className="relative w-screen pb-20 h-screen">
       {/* Full Screen Map */}
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}

@@ -31,7 +31,7 @@ function App() {
   }, []);
 
   const { isLoaded, loadError } = useLoadScript({
-    googleMapsApiKey: "AIzaSyCGwxvUpG1wG__9jOTFPYFoI6eB1xBNTrQ",
+    googleMapsApiKey: "AIzaSyDUybb6igw2gVv6C4LEEiiKy5mZdBVR0PI",
     libraries: GOOGLE_MAPS_LIBRARIES,
   });
 

@@ -84,13 +84,16 @@ const LocationScreen = ({
   return (
     <div
       style={{ minHeight: `${screenHeight}px` }}
-      className="flex flex-col items-center justify-center "
+      className="flex flex-col items-center justify-center"
+      id="TEST"
     >
       {/* Title */}
       <h2 className="mb-4 text-3xl font-semibold">Pick your location</h2>
-
       {/* Map */}
-      <div className="relative w-full mb-4 h-3/5">
+      <div
+        style={{ height: `${(3 * screenHeight) / 5}px` }}
+        className="relative w-full mb-4"
+      >
         <GoogleMap
           mapContainerStyle={{ width: "100%", height: "100%" }}
           center={selectedLocation || { lat: 0, lng: 0 }}
@@ -107,7 +110,6 @@ const LocationScreen = ({
           )}
         </GoogleMap>
       </div>
-
       {/* City Input */}
       <div className="relative w-3/4 mb-4 md:w-1/2">
         <input
@@ -124,7 +126,6 @@ const LocationScreen = ({
           </ul>
         )}
       </div>
-
       {/* Navigation Buttons */}
       <div className="absolute flex justify-between px-4 bottom-4 left-4 right-4">
         {/* Back Button on Bottom Left */}
