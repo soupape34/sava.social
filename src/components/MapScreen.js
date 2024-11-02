@@ -359,7 +359,7 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
 
       try {
         // Initialize Indexus
-        const bootstraps = ["bootstrap.indexus.io|21000"];
+        const bootstraps = ["bootstrap.testnet.indexus.network|21000"];
         const dimensions = [{ type: "spherical", args: [-90, -180, 90, 180] }];
 
         // Get the selected collection
@@ -503,7 +503,7 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
   );
 
   return (
-    <div className="relative w-screen pb-20 h-screen">
+    <div className="relative w-screen h-screen pb-20">
       {/* Full Screen Map */}
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
