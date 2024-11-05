@@ -3,6 +3,8 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { GoogleMap, Marker } from "@react-google-maps/api"; // Removed Circle
 import { getMoodEmoji } from "../utils/moodEmojis";
 import mapStyle from "../utils/mapStyle";
+import "react-datepicker/dist/react-datepicker.css";
+
 import {
   Item,
   Set as Area,
@@ -10,19 +12,8 @@ import {
   Space,
   API,
   Network,
-  Locality,
   parent,
 } from "js-indexus-sdk";
-
-// Define your collections outside the component for better performance
-const collections = {
-  0: "MjYsMjQ5LDENjYsMTAyLDE2MCwx",
-  1: "LDENjYsMTAyLDE2MCwxMjYsMjQ5",
-  2: "DE2MCwxMjYsMjQ5LDENjYsMTAyL",
-  3: "yLDE2MCwxMjYsMjQ5LDENjYsMTA",
-  4: "ENjYsMTAyLDE2MCwxMjYsMjQ5LD",
-  5: "LDE2MCwxMjYsMjQ5LDENjYsMTAy",
-};
 
 // Define emojis for values 1 to 5
 const moodEmojis = {
@@ -97,20 +88,39 @@ const getSizeByCount = (count) => {
   return size;
 };
 
-const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
+const randomizeLocation = (selectedLocation, maxOffsetMeters = 10) => {
+  const { lat, lng } = selectedLocation;
+  const earthRadius = 6378137; // Earth's radius in meters
+
+  // Convert maximum offset from meters to degrees
+  const maxOffsetDegreesLat = (maxOffsetMeters / earthRadius) * (180 / Math.PI);
+  const maxOffsetDegreesLng =
+    (maxOffsetMeters / (earthRadius * Math.cos((lat * Math.PI) / 180))) *
+    (180 / Math.PI);
+
+  // Generate random offsets within the range
+  const offsetLat = (Math.random() - 0.5) * 2 * maxOffsetDegreesLat;
+  const offsetLng = (Math.random() - 0.5) * 2 * maxOffsetDegreesLng;
+
+  return [lat + offsetLat, lng + offsetLng];
+};
+
+const MapScreen = ({
+  screenHeight,
+  moodValue,
+  setMoodValue,
+  selectedLocation,
+  setSelectedLocation,
+  onBack,
+}) => {
   const mapRef = useRef(null);
   const networkRef = useRef(null); // Ref to store Network instance
   const collectionRef = useRef(null); // Ref to store Collection instance
 
   const [markers, setMarkers] = useState([]);
-  const [areas, setAreas] = useState([]); // New state for areas
+  const [areas, setAreas] = useState([]);
   const [averageScore, setAverageScore] = useState(5.0);
-  const [isIndexing, setIsIndexing] = useState(false); // State for indexing
-  const [indexingError, setIndexingError] = useState(null); // State for indexing errors
-  const [indexusInitialized, setIndexusInitialized] = useState(false); // To prevent re-initialization
-
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
-  const [selectedCollectionId, setSelectedCollectionId] = useState(0); // New state for selected collection
+  const [indexingError, setIndexingError] = useState(null);
 
   const zoomTimeoutRef = useRef(null);
   const moveTimeoutRef = useRef(null);
@@ -155,6 +165,109 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
     setMarkers([]);
     setAreas([]);
   }, []);
+
+  // **Initialize Indexus (networkRef and collectionRef)**
+  const hasInitialized = useRef(false);
+
+  useEffect(() => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
+
+    const initializeIndexus = async () => {
+      if (!moodValue || !selectedLocation) {
+        console.warn("Mood value or location not provided.");
+        return;
+      }
+
+      setIndexingError(null);
+
+      const location = {
+        gps: randomizeLocation(selectedLocation, 30),
+        time: [new Date().getTime()],
+      };
+
+      const api = new API();
+
+      const network = new Network("https", api, [
+        "bootstrap.testnet.indexus.network|21000",
+      ]);
+
+      const collections = [
+        new Collection("LDE2MCwxMjYsMjQ5LDENjYsMTAy", [
+          {
+            name: "gps",
+            type: "spherical",
+            args: [-90, -180, 90, 180],
+          },
+        ]),
+        new Collection("yLDE2MCwxMjYsMjQ5LDENjYsMTA", [
+          {
+            name: "gps",
+            type: "spherical",
+            args: [-90, -180, 90, 180],
+          },
+          {
+            name: "time",
+            type: "linear",
+            args: [-126230400 * 16 * 16 * 8, 126230400 * 16 * 16 * 8],
+          },
+        ]),
+      ];
+
+      networkRef.current = network;
+      collectionRef.current = collections[0];
+
+      const today = new Date().toISOString().split("T")[0];
+      const storedData = localStorage.getItem(`moodData-${today}`);
+
+      if (storedData) {
+        return;
+      }
+
+      for (let i = 0; i < collections.length; i++) {
+        const collection = collections[i];
+
+        const space = new Space(
+          collection.dimensions(),
+          collection.mask(),
+          collection.offset()
+        );
+
+        const point = [];
+        const metrics = [moodValue];
+
+        for (let j = 0; j < space.size(); j++) {
+          const dimension = space.dimension(j);
+          const coordinates = location[dimension.name()];
+
+          point.push(dimension.newPoint(coordinates));
+          metrics.push(...coordinates);
+        }
+
+        try {
+          await network.addItem(
+            collection.name(),
+            "@",
+            space.encode(point, 27),
+            metrics,
+            moodValue.toString()
+          );
+        } catch (error) {
+          console.error("Error initializing Indexus:", error);
+          setIndexingError(
+            error.message || "An error occurred during initialization."
+          );
+        }
+      }
+
+      localStorage.setItem(
+        `moodData-${today}`,
+        JSON.stringify({ moodValue, location })
+      );
+    };
+
+    initializeIndexus();
+  }, [moodValue, selectedLocation]);
 
   // Define the refresh function
   const refresh = useCallback(() => {
@@ -293,9 +406,9 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
                 const { east, north, south, west } = decodedPoints[0];
 
                 // Calculate center point
-                const centerLat = metrics[0] / count;
-                const centerLng = metrics[1] / count;
-                const mood = metrics[2] / count;
+                const mood = metrics[0] / count;
+                const centerLat = metrics[1] / count;
+                const centerLng = metrics[2] / count;
 
                 // Define the bounds for the rectangle
                 const bounds = {
@@ -314,8 +427,6 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
                 };
               })
               .filter((area) => area !== null); // Remove any null areas
-
-            console.log("New Areas:", newAreas);
 
             // **Calculate Overall Average Mood**
             const totalMood =
@@ -342,117 +453,6 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
 
     fetchSets();
   }, [clearMap]); // Removed 'collections' from dependencies as it's a constant
-
-  // Initialize Indexus and index the mood and location
-  useEffect(() => {
-    // Prevent re-initialization if already done
-    if (indexusInitialized) return;
-
-    const initializeAndIndex = async () => {
-      if (!moodValue || !selectedLocation) {
-        console.warn("Mood value or location not provided.");
-        return;
-      }
-
-      setIsIndexing(true);
-      setIndexingError(null);
-
-      try {
-        // Initialize Indexus
-        const bootstraps = ["bootstrap.testnet.indexus.network|21000"];
-        const dimensions = [{ type: "spherical", args: [-90, -180, 90, 180] }];
-
-        // Get the selected collection
-        const collectionId = collections[selectedCollectionId];
-        if (!collectionId) {
-          throw new Error("Invalid collection ID selected.");
-        }
-
-        const collection = new Collection(collectionId, dimensions);
-
-        // Store collection in ref
-        collectionRef.current = collection;
-
-        // Initialize Space
-        const space = new Space(
-          collection.dimensions(),
-          collection.mask(),
-          collection.offset()
-        );
-
-        const spaces = {};
-        spaces[collection.name()] = space;
-
-        // Initialize options object
-        const geospatiality = space.dimension(0);
-
-        const options = {
-          [geospatiality.name()]: {
-            origin: geospatiality.newPoint([0, 0]), // You can set a dynamic origin if needed
-            filters: geospatiality.newFilter([0, 0], [0, 360]), // Adjust as needed
-          },
-        };
-
-        // Define cap, limit, and step
-        const cap = 2; // Maximum number of sets to process per layer
-        const step = 10; // Number of items to return per output step
-
-        const output = {
-          send: (result) => {}, // console.log("Output:", result),
-        };
-        const monitoring = {
-          send: (message) => {}, // console.log("Monitoring:", message),
-        };
-
-        // Create a new Network instance and store in ref
-        const api = new API();
-        const network = new Network(api, bootstraps);
-        networkRef.current = network;
-
-        // Create a new Locality instance
-        const indexus = new Locality(
-          spaces,
-          options,
-          cap,
-          step,
-          output,
-          monitoring,
-          network
-        );
-
-        const coordinates = [selectedLocation.lat, selectedLocation.lng];
-
-        // Encode the geolocation point
-        const encodedPoint = space.encode(
-          [geospatiality.newPoint(coordinates)],
-          27 // Adjust precision as needed
-        );
-
-        // Create a new Item with the mood value
-        const item = new Item(
-          collection.name(),
-          encodedPoint,
-          [...coordinates, moodValue],
-          moodValue.toString()
-        );
-
-        // Add the item to Indexus
-        await indexus.addItem(item);
-        console.log(
-          `Indexed mood: ${moodValue} at [${selectedLocation.lat}, ${selectedLocation.lng}]`
-        );
-
-        setIndexusInitialized(true); // Mark as initialized
-      } catch (error) {
-        console.error("Error indexing mood and location:", error);
-        setIndexingError(error.message || "An error occurred during indexing.");
-      } finally {
-        setIsIndexing(false);
-      }
-    };
-
-    initializeAndIndex();
-  }, [moodValue, selectedLocation, indexusInitialized, selectedCollectionId]);
 
   // Handle map load
   const onMapLoad = useCallback(
@@ -558,57 +558,6 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
         </div>
       </div>
 
-      {/* Filter Modal */}
-      {isFilterModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-gray-800 bg-opacity-50">
-          <div className="w-11/12 max-w-md p-6 bg-white rounded-lg shadow-lg">
-            <h2 className="mb-4 text-xl font-semibold">Filter Collections</h2>
-            <div className="mb-6">
-              <label
-                htmlFor="collection-select-modal"
-                className="block mb-2 text-sm font-medium text-gray-700"
-              >
-                Select Collection:
-              </label>
-              <select
-                id="collection-select-modal"
-                value={selectedCollectionId}
-                onChange={(e) =>
-                  setSelectedCollectionId(parseInt(e.target.value, 10))
-                }
-                className="w-full px-3 py-2 border rounded-md focus:outline-none focus:ring focus:border-blue-300"
-              >
-                <option value={0}>All</option>
-                {Object.entries(collections)
-                  .filter(([id]) => id !== "0")
-                  .map(([id, collection]) => (
-                    <option key={id} value={id}>
-                      {moodEmojis[id] || `Mood ${id}`}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setIsFilterModalOpen(false)}
-                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setIsFilterModalOpen(false);
-                  refresh(); // Refresh the map with the new filter
-                }}
-                className="px-4 py-2 text-white rounded-md bg-primary"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Navigation Buttons */}
       <div className="absolute flex justify-between px-4 bottom-4 left-4 right-4">
         {/* Back Button on Bottom Left */}
@@ -631,44 +580,7 @@ const MapScreen = ({ screenHeight, moodValue, selectedLocation, onBack }) => {
             />
           </svg>
         </button>
-
-        {/* Next Button on Bottom Right */}
-        <button
-          onClick={() => setIsFilterModalOpen(true)}
-          className="p-2 text-white rounded-full shadow-lg bg-primary"
-          aria-label="Open Filter Modal"
-        >
-          {/* Filter Icon (you can replace this with any icon you prefer) */}
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            className="w-6 h-6"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <g transform="translate(0, 6)">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                d="M3 0h18M3 6h18M3 12h18"
-              />
-            </g>
-          </svg>
-        </button>
       </div>
-
-      {/* Indexing Feedback */}
-      {isIndexing && (
-        <div className="fixed inset-0 flex items-center justify-center bg-gray-800 bg-opacity-50">
-          <div className="p-4 text-center bg-white rounded shadow-lg">
-            <p className="font-semibold text-md">
-              Indexing your mood and location...
-            </p>
-            {/* Optional Spinner */}
-          </div>
-        </div>
-      )}
 
       {/* Indexing Error Display */}
       {indexingError && (
