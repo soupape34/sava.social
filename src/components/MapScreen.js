@@ -508,7 +508,7 @@ const MapScreen = ({
       <GoogleMap
         mapContainerStyle={{ width: "100%", height: "100%" }}
         center={selectedLocation}
-        zoom={12}
+        zoom={2}
         options={{ disableDefaultUI: true, styles: mapStyle }}
         onLoad={onMapLoad} // Attach the onLoad handler
       >
