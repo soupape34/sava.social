@@ -25,7 +25,7 @@ const moodEmojis = {
 };
 
 // Function to map mood to color using a gradient from black to yellow
-const getColorByMood = (mood) => {
+const getColorByMood = (mood, alpha = 1) => {
   // Clamp mood between 1 and 5
   const clampedMood = Math.max(1, Math.min(mood, 5));
 
@@ -59,7 +59,7 @@ const getColorByMood = (mood) => {
 
   // If both stops are the same, return the color directly
   if (lower.percentage === upper.percentage) {
-    return `rgb(${lower.color.r}, ${lower.color.g}, ${lower.color.b})`;
+    return `rgba(${lower.color.r}, ${lower.color.g}, ${lower.color.b}, ${alpha})`;
   }
 
   // Calculate the interpolation factor between the two stops
@@ -77,7 +77,7 @@ const getColorByMood = (mood) => {
     lower.color.b + fraction * (upper.color.b - lower.color.b)
   );
 
-  return `rgb(${r}, ${g}, ${b})`;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 };
 
 // Function to map count to marker size
@@ -303,7 +303,6 @@ const MapScreen = ({
             space.newPoint([[ne.lat(), sw.lng()]]), // Top-left
             space.newPoint([[ne.lat(), ne.lng()]]), // Top-right
           ];
-
           let hashes = points.map((point) => space.encode(point, 27));
           let selected = {};
 
@@ -351,7 +350,9 @@ const MapScreen = ({
 
                 if (set.length === 0) {
                   const tmp = parent(hash);
-                  selected[tmp] = true;
+                  if (tmp.length > 0) {
+                    selected[tmp] = true;
+                  }
                 } else {
                   set.forEach((elm) => {
                     elm._parent = hash;
@@ -370,6 +371,9 @@ const MapScreen = ({
               (element) => element instanceof Area
             );
 
+            // **Get Current Map Bounds for Visibility Calculation**
+            const currentBounds = mapRef.current.getBounds();
+
             // Process Items to create markers
             const newMarkers = fetchedItems
               .map((item) => {
@@ -381,15 +385,23 @@ const MapScreen = ({
                 // Get the mood value from _id
                 const mood = parseInt(item._id, 10); // Ensure it's an integer
 
+                const position = {
+                  lat: (north + south) / 2,
+                  lng: (east + west) / 2,
+                };
+
+                // Determine visibility based on current map bounds
+                const isVisible = currentBounds.contains(
+                  new window.google.maps.LatLng(position.lat, position.lng)
+                );
+
                 return {
                   hash: item._hash,
-                  position: {
-                    lat: (north + south) / 2,
-                    lng: (east + west) / 2,
-                  },
+                  position: position,
                   emoji: moodEmojis[mood] || "❓", // Use emoji or a default if undefined
                   mood: mood,
                   title: mood === 0 ? "All Moods" : `Mood: ${mood}`,
+                  visible: isVisible, // Set visibility
                 };
               })
               .filter((marker) => marker !== null); // Remove any null markers
@@ -401,40 +413,43 @@ const MapScreen = ({
                 const count = setObj._count || 1; // Default to 1 if not available
                 const metrics = setObj._metrics;
 
-                const decodedPoints = space.decode(hash); // Assuming decode returns [{ east, north, south, west }]
-                if (!decodedPoints || decodedPoints.length === 0) return null;
-                const { east, north, south, west } = decodedPoints[0];
-
                 // Calculate center point
                 const mood = metrics[0] / count;
                 const centerLat = metrics[1] / count;
                 const centerLng = metrics[2] / count;
 
-                // Define the bounds for the rectangle
-                const bounds = {
-                  north: north,
-                  south: south,
-                  east: east,
-                  west: west,
-                };
+                const center = { lat: centerLat, lng: centerLng };
+
+                // Determine visibility based on current map bounds
+                const isVisible = currentBounds.contains(
+                  new window.google.maps.LatLng(center.lat, center.lng)
+                );
 
                 return {
                   hash,
-                  bounds,
-                  center: { lat: centerLat, lng: centerLng },
+                  center: center,
                   mood,
                   count: count,
+                  visible: isVisible, // Set visibility
                 };
               })
               .filter((area) => area !== null); // Remove any null areas
 
             // **Calculate Overall Average Mood**
+            // Filter only the visible areas and markers
+            const visibleMarkers = newMarkers.filter(
+              (marker) => marker.visible
+            );
+            const visibleAreas = newAreas.filter((area) => area.visible);
+
             const totalMood =
-              newAreas.reduce((acc, area) => acc + area.mood * area.count, 0) +
-              newMarkers.reduce((acc, marker) => acc + marker.mood, 0);
+              visibleAreas.reduce(
+                (acc, area) => acc + area.mood * area.count,
+                0
+              ) + visibleMarkers.reduce((acc, marker) => acc + marker.mood, 0);
             const totalCount =
-              newAreas.reduce((acc, area) => acc + area.count, 0) +
-              newMarkers.reduce((acc, marker) => acc + 1, 0);
+              visibleAreas.reduce((acc, area) => acc + area.count, 0) +
+              visibleMarkers.reduce((acc, marker) => acc + 1, 0);
             const overallAverage = totalCount > 0 ? totalMood / totalCount : 0;
 
             setAverageScore(overallAverage.toFixed(2));
@@ -502,6 +517,27 @@ const MapScreen = ({
     [refresh] // Ensure 'refresh' is correctly included
   );
 
+  // **Helper Function to Determine Text Color Based on Background Brightness**
+  const getTextColor = (rgbaColor) => {
+    // Extract RGB values
+    const matches = rgbaColor.match(/rgba?\((\d+), (\d+), (\d+)/);
+    if (!matches) return "#000"; // Default to black if parsing fails
+
+    const r = parseInt(matches[1], 10);
+    const g = parseInt(matches[2], 10);
+    const b = parseInt(matches[3], 10);
+
+    // Calculate brightness using the YIQ formula
+    const brightness = (r * 299 + g * 587 + b * 114) / 1000;
+
+    // Return black for bright colors, white for dark colors
+    return brightness > 125 ? "#000" : "#fff";
+  };
+
+  // **Compute Background Color and Text Color for Scores Display**
+  const backgroundColor = getColorByMood(averageScore, 0.75); // 75% opacity
+  const textColor = getTextColor(backgroundColor);
+
   return (
     <div className="relative w-screen h-screen pb-20">
       {/* Full Screen Map */}
@@ -519,6 +555,7 @@ const MapScreen = ({
             position={marker.position}
             icon={createEmojiMarkerIcon(marker.emoji)}
             title={marker.title}
+            visible={marker.visible} // Control visibility
           />
         ))}
 
@@ -529,12 +566,19 @@ const MapScreen = ({
             position={area.center}
             icon={createAreaLabelIcon(area.count, area.mood)}
             title={`Area with ${area.count} mood(s)`}
+            visible={area.visible} // Control visibility
           />
         ))}
       </GoogleMap>
 
       {/* Scores Display */}
-      <div className="absolute flex flex-col items-center w-11/12 max-w-md px-3 py-1.5 space-y-2 text-base bg-white bg-opacity-75 rounded top-4 left-1/2 transform -translate-x-1/2">
+      <div
+        className="absolute flex flex-col items-center w-11/12 max-w-md px-3 py-1.5 space-y-2 rounded top-4 left-1/2 transform -translate-x-1/2"
+        style={{
+          backgroundColor: backgroundColor, // Dynamic background color
+          color: textColor, // Dynamic text color for readability
+        }}
+      >
         {/* Combined Scores */}
         <div className="flex flex-wrap justify-center gap-10">
           {[
