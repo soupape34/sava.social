@@ -120,6 +120,7 @@ const MapScreen = ({
   const [markers, setMarkers] = useState([]);
   const [areas, setAreas] = useState([]);
   const [averageScore, setAverageScore] = useState(5.0);
+  const [totalCount, setTotalCount] = useState(0);
   const [indexingError, setIndexingError] = useState(null);
 
   const zoomTimeoutRef = useRef(null);
@@ -187,7 +188,9 @@ const MapScreen = ({
       };
 
       const api = new API();
-      const network = new Network("http", api, ["127.0.0.1|21001"]);
+      const network = new Network("https", api, [
+        "bootstrap.testnet.indexus.network|21000",
+      ]);
 
       const collections = [
         new Collection("LDE2MCwxMjYsMjQ5LDENjYsMTAy", [
@@ -468,6 +471,7 @@ const MapScreen = ({
             const overallAverage = totalCount > 0 ? totalMood / totalCount : 0;
 
             setAverageScore(overallAverage.toFixed(2));
+            setTotalCount(totalCount);
 
             // **Update markers state by replacing existing markers with new markers**
             setMarkers(newMarkers);
@@ -588,7 +592,7 @@ const MapScreen = ({
 
       {/* Scores Display */}
       <div
-        className="absolute flex flex-col items-center w-11/12 max-w-md px-3 py-1.5 space-y-2 rounded top-4 left-1/2 transform -translate-x-1/2"
+        className="absolute flex flex-col items-center w-11/12 max-w-md px-3 py-1.5 rounded top-4 left-1/2 transform -translate-x-1/2"
         style={{
           backgroundColor: backgroundColor, // Dynamic background color
           color: textColor, // Dynamic text color for readability
@@ -607,10 +611,15 @@ const MapScreen = ({
               value: averageScore,
               emoji: getMoodEmoji(Math.round(averageScore)),
             },
+            {
+              label: "Count:",
+              value: totalCount,
+              emoji: "📊",
+            },
           ].map(({ label, value, emoji }, idx) => (
             <div key={idx} className="flex items-center gap-1">
               <span>{label}</span>
-              <span className="text-xl">{emoji}</span>
+              <span>{emoji}</span>
               <span className="font-bold">{value}</span>
             </div>
           ))}
