@@ -187,10 +187,7 @@ const MapScreen = ({
       };
 
       const api = new API();
-
-      const network = new Network("https", api, [
-        "bootstrap.testnet.indexus.network|21000",
-      ]);
+      const network = new Network("http", api, ["127.0.0.1|21001"]);
 
       const collections = [
         new Collection("LDE2MCwxMjYsMjQ5LDENjYsMTAy", [
@@ -383,7 +380,8 @@ const MapScreen = ({
                 const { east, north, south, west } = decodedPoints[0];
 
                 // Get the mood value from _id
-                const mood = parseInt(item._id, 10); // Ensure it's an integer
+                const mood = parseInt(item._id, 10);
+                const metrics = item._metrics;
 
                 const position = {
                   lat: (north + south) / 2,
@@ -395,12 +393,24 @@ const MapScreen = ({
                   new window.google.maps.LatLng(position.lat, position.lng)
                 );
 
+                const hash = item._hash;
+
+                fetchedSets.forEach((set, index) => {
+                  if (hash.indexOf(set._hash) === 0) {
+                    set._count--;
+                    set._metrics.forEach((metric, index) => {
+                      set._metrics[index] -= item._metrics[index];
+                    });
+                  }
+                });
+
                 return {
-                  hash: item._hash,
+                  hash: hash,
                   position: position,
                   emoji: moodEmojis[mood] || "❓", // Use emoji or a default if undefined
                   mood: mood,
                   title: mood === 0 ? "All Moods" : `Mood: ${mood}`,
+                  metrics,
                   visible: isVisible, // Set visibility
                 };
               })
@@ -408,10 +418,14 @@ const MapScreen = ({
 
             // Process Sets to create areas
             const newAreas = fetchedSets
-              .map((setObj) => {
-                const hash = setObj._hash;
-                const count = setObj._count || 1; // Default to 1 if not available
-                const metrics = setObj._metrics;
+              .map((set) => {
+                const hash = set._hash;
+                const count = set._count;
+                const metrics = set._metrics;
+
+                if (count <= 0) {
+                  return null;
+                }
 
                 // Calculate center point
                 const mood = metrics[0] / count;
@@ -427,10 +441,11 @@ const MapScreen = ({
 
                 return {
                   hash,
-                  center: center,
+                  center,
                   mood,
-                  count: count,
-                  visible: isVisible, // Set visibility
+                  count,
+                  metrics,
+                  visible: isVisible,
                 };
               })
               .filter((area) => area !== null); // Remove any null areas
